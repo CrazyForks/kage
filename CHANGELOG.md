@@ -6,13 +6,18 @@ All notable changes to kage are recorded here. The format follows
 
 ## [Unreleased]
 
-## [0.3.11] - 2026-07-31
+## [0.3.11] - 2026-08-01
 
 ### Fixed
 
 - `go install github.com/tamnd/kage/cmd/kage@latest` works again ([#72](https://github.com/tamnd/kage/issues/72)).
   The v0.3.9 antivirus fix used a local `replace` directive to remove Rod's embedded leakless watchdog, but Go rejects versioned installation of any module whose dependencies are changed that way.
   Windows now uses a small native Chrome launcher that never imports leakless, while other platforms retain Rod's launcher; this removes the `replace` directive without putting the antivirus-flagged helper back into `kage.exe`.
+
+### Security
+
+- Updated `golang.org/x/text` to v0.39.0 for [GO-2026-5970](https://pkg.go.dev/vuln/GO-2026-5970), an infinite loop on invalid input.
+  `kage clone` reached the affected normalization code through the progress renderer, so govulncheck reported it as callable rather than merely present.
 
 ## [0.3.10] - 2026-07-11
 
