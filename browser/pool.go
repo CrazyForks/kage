@@ -96,11 +96,18 @@ func (p *Pool) Render(ctx context.Context, rawURL string) (RenderResult, error) 
 		return RenderResult{}, err
 	}
 
-	page, err := stealth.Page(b)
+	// Create the page in the background so headful mode does not pull the Chrome
+	// window to the foreground and steal focus on every new tab. The only
+	// difference from stealth.Page is Background:true; the anti-detection script
+	// is still injected via stealth.JS.
+	page, err := b.Page(proto.TargetCreateTarget{Background: true})
 	if err != nil {
 		return RenderResult{}, fmt.Errorf("new page: %w", err)
 	}
 	defer func() { _ = page.Close() }()
+	if _, err := page.EvalOnNewDocument(stealth.JS); err != nil {
+		return RenderResult{}, fmt.Errorf("inject stealth: %w", err)
+	}
 
 	page = page.Context(ctx).Timeout(p.opts.RenderTimeout)
 
