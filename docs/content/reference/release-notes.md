@@ -6,23 +6,30 @@ weight: 40
 
 The authoritative, commit-level history lives in [`CHANGELOG.md`](https://github.com/tamnd/kage/blob/main/CHANGELOG.md) and on the [releases page](https://github.com/tamnd/kage/releases). This page summarises each version.
 
-## Unreleased
+## v0.3.12
 
-- **Crawl path controls use path boundaries.** `--exclude` and
-  `--scope-prefix` match a path and its descendants without catching unrelated
-  names that merely contain the same text. `--max-pages` is now described
-  accurately as a cap on queued page URLs rather than on renders, so a page that
-  fails, that `robots.txt` disallows, or that is not HTML still spends its slot.
-- **Multi-page ZIM packs get a usable landing page.** Mirrors without a root
-  `index.html` list pages by title instead of opening an arbitrary first page;
-  single-page archives still open directly on their article ([#62](https://github.com/tamnd/kage/issues/62)).
-- **Saved pages declare their real encoding.** Non-UTF-8 charset metadata is
-  rewritten to UTF-8, matching the bytes kage writes to disk ([#16](https://github.com/tamnd/kage/issues/16)).
-- **Redirects resolve correctly.** Relative links use the post-redirect URL and
-  the document's first `<base href>`. After rewriting, every base `href` is
-  removed so it cannot affect the saved page, while a base `target` is
-  preserved. On a cross-host redirect, references to an out-of-scope
-  destination remain absolute rather than being localised.
+The largest community release kage has had. Most of what is below arrived as pull requests from other people, and the rest came from bug reports that were specific enough to act on.
+
+- **`--resume` actually resumes.** `state.json` only ever persisted the visited set, so a resumed run found its seed already visited, queued nothing, printed `pages 0` and exited successfully with most of the site still missing. The unfinished frontier is now saved next to the visited set, with each page's depth so `--max-depth` keeps its meaning across a restart, and a run reports what it is leaving behind. A page that failed is carried into the next run instead of being lost, which is the memory of what failed asked for in [#36](https://github.com/tamnd/kage/issues/36). `--max-pages` no longer throws away the pages it held back, so inspecting a site with `-p 20` and then finishing it later works as a workflow.
+- **Saved pages keep their doctype.** kage serialises a rendered page as the outerHTML of `<html>`, and a doctype is a sibling of `<html>` rather than a child, so every page kage had ever written came out without one. A document with no doctype is quirks mode in every browser, which changes the box model and strips the `<meta charset>` declaration of its authority, and that is the encoding problem behind [#16](https://github.com/tamnd/kage/issues/16). The original doctype is now reproduced exactly, because the string itself selects the rendering mode, and a page that genuinely had none still gets none.
+- **Saved pages declare their real encoding.** Non-UTF-8 `<meta charset>` and Content-Type charset declarations are rewritten to UTF-8, matching the bytes kage writes to disk ([#16](https://github.com/tamnd/kage/issues/16)). Rewriting covers the whole document, but whether the page declares an encoding is answered from `<head>` alone, since a charset meta Chrome left in `<body>` sits past the 1024 bytes a reader pre-scans and is no use to anyone.
+- **`--scroll` scrolls the element that actually scrolls.** It called `window.scrollBy`, which moves nothing on a site whose body is pinned to the viewport with the document inside an inner container, and that is how Feishu, Notion, Linear and most dashboards are built ([#61](https://github.com/tamnd/kage/issues/61)). kage now picks the largest genuinely scrollable element, reads the position back after each step instead of assuming the step landed, and keeps going until both the position and the height stop changing. The whole scroll is bounded by half the render timeout, so a page that appends content forever cannot hold a worker.
+- **Redirects resolve correctly, and no longer end the crawl.** Relative links use the post-redirect URL and the document's first `<base href>`, and every consumed base `href` is removed so it cannot re-root the saved page, while a base `target` is preserved. A redirect that leaves the crawl scope used to take the page's links with it: a seed redirecting apex to www resolved every link onto a host the scope rejects, so nothing was enqueued and the run saved one page and stopped, while assets kept downloading and made it look complete. The resolution base now falls back to the document `<base href>` and then to the enqueued URL whenever the redirect target is out of scope.
+- **Multi-page ZIM packs get a usable landing page.** A mirror with no root `index.html` gets a bounded, title-sorted list of its pages instead of opening on an arbitrary one, and a single-page archive still opens directly on its article and keeps that article's title metadata ([#62](https://github.com/tamnd/kage/issues/62)).
+- **Crawl path controls use path boundaries.** `--exclude` and `--scope-prefix` match a path and its descendants rather than any substring, so pass the full path prefix if you relied on the old behaviour. `--max-pages` is now documented accurately as a cap on queued page URLs rather than on renders, so a page that fails, that `robots.txt` disallows, or that is not HTML still spends its slot.
+- **A headful crawl stops stealing focus.** Render pages are created in the background, so driving kage through `--control-url` against a logged-in browser no longer pulls the Chrome window in front of whatever you are working in ([#70](https://github.com/tamnd/kage/pull/70)).
+- **`--traversal` is deprecated.** The flag was never read and crawls have always been breadth-first. It is still accepted so existing scripts keep working, and it is planned for removal in the next minor release.
+- **New documentation.** `CONTRIBUTING.md` covers the development setup, the test commands, and what a focused pull request looks like, and a new robots.txt reference explains the `kage` agent token, `Crawl-delay`, and the advisory `--no-robots` override ([#8](https://github.com/tamnd/kage/issues/8)).
+
+### Thanks
+
+Special thanks to SihanTeng, who wrote seven of the pull requests in this release: the redirect base resolution ([#74](https://github.com/tamnd/kage/pull/74)), the synthetic ZIM landing page ([#75](https://github.com/tamnd/kage/pull/75)), the crawl control path semantics ([#76](https://github.com/tamnd/kage/pull/76)), the charset rewriting ([#81](https://github.com/tamnd/kage/pull/81)), the `--traversal` deprecation ([#82](https://github.com/tamnd/kage/pull/82)), the contributor guide ([#83](https://github.com/tamnd/kage/pull/83)), and the robots.txt reference ([#84](https://github.com/tamnd/kage/pull/84)). That work started as two large pull requests, and after a review asking for one concern each it came back as seven focused ones, which is the single most useful thing a contributor can do for a reviewer.
+
+Thanks to Ziop for the background render fix ([#70](https://github.com/tamnd/kage/pull/70)), which is the kind of bug you only find by living with the tool.
+
+Thanks to the people whose reports drove the rest of this release: pepa65 for the UTF-8 and quirks mode report ([#16](https://github.com/tamnd/kage/issues/16)), j2l for the resume and long object chain report ([#36](https://github.com/tamnd/kage/issues/36)), edenzhong for the app-shell scrolling report ([#61](https://github.com/tamnd/kage/issues/61)), klerpi for the homepage-less ZIM report ([#62](https://github.com/tamnd/kage/issues/62)), and Xe for asking how site owners are meant to block this tool ([#8](https://github.com/tamnd/kage/issues/8)).
+
+Thanks also to everyone who has contributed to kage before this release: Xirui Wang, Kaidi Zhao, Gautam Kumar, Valid-Systems, and John Pywtorak.
 
 ## v0.3.11
 

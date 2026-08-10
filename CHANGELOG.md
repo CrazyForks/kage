@@ -4,7 +4,7 @@ All notable changes to kage are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.12] - 2026-08-10
 
 ### Added
 
@@ -71,13 +71,11 @@ All notable changes to kage are recorded here. The format follows
   A page `robots.txt` disallows is not carried over, since a later run would only fetch `robots.txt` and skip it again.
 - `--max-pages` no longer discards the pages it held back.
   They stay in the frontier, so `kage clone example.com -p 20` to inspect a site and then `kage clone example.com` to finish it now works as a workflow.
-
 - `--scroll` scrolls the element that actually scrolls, so lazy-loaded content appears on app-shell pages ([#61](https://github.com/tamnd/kage/issues/61)).
   It called `window.scrollBy`, which moves nothing on a site whose body is fixed to the viewport height with the document inside an inner container, and that is how Feishu, Notion, Linear and most dashboards are built.
   The loop also stopped as soon as the distance travelled reached `document.body.scrollHeight`, which on those pages is one viewport, so it gave up after a single step even where the window did scroll.
   kage now picks the largest genuinely scrollable element on the page, reads `scrollTop` back after each step instead of assuming the step landed, and keeps going until the position and the height both stop changing, which is what infinite scroll needs.
   The scroll is bounded by half the render timeout, at least five seconds, so a page that appends content forever cannot hold a worker indefinitely.
-
 - Saved pages keep their `<!DOCTYPE html>` instead of rendering in quirks mode ([#16](https://github.com/tamnd/kage/issues/16)).
   kage serialises a rendered page as the outerHTML of `<html>`, and a doctype is a sibling of `<html>` rather than a child, so it was never in that string and every page kage has ever written came out without one.
   A document with no doctype is quirks mode in every browser: the box model reverts to the pre-CSS2 IE one and `line-height`, table cell inheritance and `vertical-align` all change, so the saved copy laid out differently from the original, and the `<meta charset>` declaration lost its authority, leaving a reader free to fall back to its locale encoding and mojibake every multibyte character.
@@ -85,6 +83,9 @@ All notable changes to kage are recorded here. The format follows
   The doctype is now read from the DOM and reproduced exactly rather than replaced with `<!DOCTYPE html>`, because the string itself selects the rendering mode: HTML 4.01 Transitional is standards mode with its system identifier and quirks mode without it.
   A page that genuinely had no doctype on the live web still gets none, so it keeps rendering the way its author saw it.
 - The `cloned by kage` banner comment is written after the doctype rather than before it, so the doctype stays the first thing in the file.
+- Render pages open in the background, so a headful crawl no longer pulls the Chrome window in front of whatever you are working in ([#70](https://github.com/tamnd/kage/pull/70)).
+  `stealth.Page` creates every tab in the foreground, which meant a crawl driven through `--control-url` against a logged-in browser stole focus once per page.
+  kage now creates the page with `Background: true` and injects the same stealth script with `EvalOnNewDocument`, so anti-detection behaviour is unchanged.
 
 ## [0.3.11] - 2026-08-01
 
